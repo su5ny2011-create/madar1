@@ -1,0 +1,26 @@
+{
+  "name": "المدار لخدمات الكمبيوتر والصيانة",
+  "short_name": "المدار للكمبيوتر",
+  "description": "بوابة زبائن المدار لحجز مواعيد الصيانة الذاتية وتتبع حالة اللابتوب والأجهزة",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#024B83",
+  "theme_color": "#024B83",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "categories": ["business", "utilities"],
+  "shortcuts": [
+    {
+      "name": "حجز موعد صيانة",
+      "short_name": "حجز موعد",
+      "url": "/",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
+    }
+  ]
+}

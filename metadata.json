@@ -1,0 +1,6 @@
+{
+  "name": "Al-Madar IT Portal",
+  "description": "بوابة شركة المدار لإدارة خدمات صيانة الكمبيوتر، زيارات الزبائن والتقارير المالية - Al-Madar Information Technology Maintenance & Finance Management Portal",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
