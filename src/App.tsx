@@ -498,7 +498,7 @@ function MainApplication() {
       const storedParts = localStorage.getItem('almadar_parts');
       setParts(storedParts ? JSON.parse(storedParts) : defaultParts);
 
-      const storedCategories = localStorage.getItem('almadar_custom_categories');
+      const storedCategories = localStorage.getItem('almadar_expense_categories') || localStorage.getItem('almadar_custom_categories');
       setCustomExpenseCategories(storedCategories ? JSON.parse(storedCategories) : defaultCustomExpenseCategories);
 
       const storedRequests = localStorage.getItem('almadar_requests');
@@ -550,7 +550,7 @@ function MainApplication() {
             break;
           case 'f':
             e.preventDefault();
-            if (currentUser?.permissions.canManageFinancials) {
+            if (currentUser?.permissions.canAddEditFinance || currentUser?.role === 'admin' || currentUser?.role === 'financial') {
               setActiveTab('financial');
             }
             break;
