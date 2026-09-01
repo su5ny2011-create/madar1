@@ -304,6 +304,8 @@ async function startServer() {
         failureReason: reqBody.failureReason ?? '',
         paymentMethod: reqBody.paymentMethod ?? 'none',
         amount: reqBody.amount ?? 0,
+        paidAmount: reqBody.paidAmount ?? (reqBody.paymentMethod && reqBody.paymentMethod !== 'none' ? reqBody.amount : 0),
+        payments: reqBody.payments || [],
       };
 
       await getDb().insert(dbMaintenanceRequests)

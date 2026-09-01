@@ -635,24 +635,47 @@ export default function AppointmentCalendar({
                 </div>
               )}
 
-              {/* Pricing & payment */}
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 font-arabic mb-0.5">{t.amountJOD}</span>
-                  <span className="text-sm font-black text-[#024B83] font-mono">
-                    {selectedAppointment.amount} {t.jod}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 font-arabic mb-0.5">{t.paymentMethod}</span>
-                  <span className="text-xs font-bold text-slate-700 font-arabic">
-                    {selectedAppointment.paymentMethod === 'cash' && `💵 ${t.cash}`}
-                    {selectedAppointment.paymentMethod === 'click' && `📱 ${t.click}`}
-                    {selectedAppointment.paymentMethod === 'cheque' && `💳 ${t.cheque}`}
-                    {selectedAppointment.paymentMethod === 'none' && `⚠️ ${t.none}`}
-                  </span>
-                </div>
-              </div>
+              {/* Pricing & payment breakdown */}
+              {(() => {
+                if (!selectedAppointment) return null;
+                const paid = selectedAppointment.paidAmount ?? (selectedAppointment.paymentMethod !== 'none' ? selectedAppointment.amount : 0);
+                const remaining = Math.max(0, selectedAppointment.amount - paid);
+                const isPaidFull = paid >= selectedAppointment.amount && selectedAppointment.amount > 0;
+                const isPaidPartial = paid > 0 && paid < selectedAppointment.amount;
+                
+                return (
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-2">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-white p-2 rounded-lg border border-slate-100">
+                        <span className="block text-[10px] font-bold text-slate-400 font-arabic mb-0.5">{t.totalAmount}</span>
+                        <span className="text-xs font-black text-[#024B83] font-mono">
+                          {selectedAppointment.amount} {t.jod}
+                        </span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-100">
+                        <span className="block text-[10px] font-bold text-emerald-600 font-arabic mb-0.5">{t.paidAmount}</span>
+                        <span className="text-xs font-black text-emerald-600 font-mono">
+                          {paid.toFixed(2)} {t.jod}
+                        </span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-100">
+                        <span className="block text-[10px] font-bold text-amber-600 font-arabic mb-0.5">{t.remainingAmount}</span>
+                        <span className="text-xs font-black text-amber-600 font-mono">
+                          {remaining.toFixed(2)} {t.jod}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 font-arabic px-1 pt-1">
+                      <span>{t.paymentStatus}:</span>
+                      <span>
+                        {isPaidFull && '🟢 ' + t.paidFull}
+                        {isPaidPartial && '🟡 ' + `${t.paidPartial} (${paid} ${t.jod})`}
+                        {!isPaidFull && !isPaidPartial && '🔴 ' + t.unpaid}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Failure reason if not prepared */}
               {selectedAppointment.status === 'not_ready' && selectedAppointment.failureReason && (

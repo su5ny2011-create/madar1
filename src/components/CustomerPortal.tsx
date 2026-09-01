@@ -873,25 +873,40 @@ export default function CustomerPortal({
                             </div>
                           )}
 
-                          {/* Total fees & Drop-off notes */}
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-slate-50 p-3 rounded-lg border border-slate-100 gap-2">
-                            <div>
-                              <span className="block text-[10px] text-slate-400 font-arabic">{isRtl ? 'طريقة الدفع الحالية:' : 'Payment details:'}</span>
-                              <span className="text-xs font-bold text-slate-700 font-arabic">
-                                {appt.paymentMethod === 'cash' && '💵 كاش (مدفوع)'}
-                                {appt.paymentMethod === 'click' && '📱 كليك CliQ (مدفوع)'}
-                                {appt.paymentMethod === 'cheque' && '💳 شيك (مدفوع)'}
-                                {appt.paymentMethod === 'none' && '⚠️ مستحق الدفع عند الاستلام'}
-                              </span>
-                            </div>
-
-                            <div className="text-right">
-                              <span className="block text-[10px] text-slate-400 font-arabic">{isRtl ? 'القيمة والمصاريف الإجمالية:' : 'Total invoice value:'}</span>
-                              <span className="text-sm font-black text-[#024B83] font-mono">
-                                {appt.amount} {t.jod}
-                              </span>
-                            </div>
-                          </div>
+                          {/* Total fees & Payment breakdown */}
+                          {(() => {
+                            if (!appt) return null;
+                            const paid = appt.paidAmount ?? (appt.paymentMethod !== 'none' ? appt.amount : 0);
+                            const remaining = Math.max(0, appt.amount - paid);
+                            const isPaidFull = paid >= appt.amount && appt.amount > 0;
+                            const isPaidPartial = paid > 0 && paid < appt.amount;
+                            return (
+                              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
+                                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                    <span className="block text-[10px] text-slate-400 font-arabic">{isRtl ? 'إجمالي التكلفة:' : 'Total Cost:'}</span>
+                                    <span className="text-xs font-black text-slate-900 font-mono">{appt.amount} {t.jod}</span>
+                                  </div>
+                                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                    <span className="block text-[10px] text-emerald-600 font-arabic">{isRtl ? 'الدفعة المسددة:' : 'Paid Deposit:'}</span>
+                                    <span className="text-xs font-black text-emerald-600 font-mono">{paid.toFixed(2)} {t.jod}</span>
+                                  </div>
+                                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                    <span className="block text-[10px] text-amber-600 font-arabic">{isRtl ? 'المتبقي عند الاستلام:' : 'Remaining Balance:'}</span>
+                                    <span className="text-xs font-black text-amber-600 font-mono">{remaining.toFixed(2)} {t.jod}</span>
+                                  </div>
+                                </div>
+                                <div className="text-[11px] font-bold text-slate-600 font-arabic flex items-center justify-between pt-1">
+                                  <span>{isRtl ? 'حالة السداد:' : 'Payment Status:'}</span>
+                                  <span>
+                                    {isPaidFull && '🟢 ' + (isRtl ? 'مدفوع بالكامل' : 'Paid in Full')}
+                                    {isPaidPartial && '🟡 ' + (isRtl ? `مسدد دفعة جزئية (${paid} د.أ)` : `Partially Paid (${paid} JOD)`)}
+                                    {!isPaidFull && !isPaidPartial && '🔴 ' + (isRtl ? 'غير مدفوع (يُسدد عند الاستلام)' : 'Unpaid (Due upon pickup)')}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           {/* Failure reason details if work is halted */}
                           {appt.status === 'not_ready' && appt.failureReason && (

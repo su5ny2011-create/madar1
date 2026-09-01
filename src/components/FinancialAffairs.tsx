@@ -292,8 +292,8 @@ export default function FinancialAffairs({
       {showForm && (
         <div className="bg-white p-6 rounded-2xl border-2 border-[#024B83]/30 shadow-md">
           <h3 className="text-sm font-bold text-[#024B83] mb-6 border-b border-slate-100 pb-3 font-arabic flex items-center gap-1.5">
-            <PlusCircle className="w-4 h-4 text-[#E5941A]" />
-            {t.addTransaction}
+            {editingTxId ? <Edit3 className="w-4 h-4 text-[#E5941A]" /> : <PlusCircle className="w-4 h-4 text-[#E5941A]" />}
+            {editingTxId ? (isRtl ? 'تعديل القيد المالي' : 'Edit Transaction') : t.addTransaction}
           </h3>
 
           <form onSubmit={handleSaveTransaction} className="space-y-4">

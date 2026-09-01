@@ -47,6 +47,8 @@ export const dbMaintenanceRequests = pgTable('maintenance_requests', {
   failureReason: text('failure_reason').notNull().default(''),
   paymentMethod: text('payment_method').notNull().default('none'), // 'cash' | 'click' | 'cheque' | 'none'
   amount: doublePrecision('amount').notNull().default(0),
+  paidAmount: doublePrecision('paid_amount').notNull().default(0),
+  payments: jsonb('payments'), // array of MaintenancePayment objects
 });
 
 export const dbFinancialTransactions = pgTable('financial_transactions', {

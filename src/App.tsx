@@ -455,7 +455,7 @@ function MainApplication() {
 
   // Load state from backend APIs on mount with Local Storage and Mock data fallbacks
   useEffect(() => {
-    // 1. Initial local fallbacks
+    // 1. Initial local fallbacks with LocalStorage persistence support
     try {
       const storedLang = localStorage.getItem('almadar_lang');
       if (storedLang === 'ar' || storedLang === 'en') {
@@ -467,13 +467,26 @@ function MainApplication() {
         setCurrentUser(JSON.parse(storedUser));
       }
 
-      setUsers(defaultUsers);
-      setCustomers(defaultCustomers);
-      setParts(defaultParts);
-      setCustomExpenseCategories(defaultCustomExpenseCategories);
-      setRequests(defaultMaintenanceRequests);
-      setTransactions(defaultFinancialTransactions);
-      setMorningCash(defaultMorningCash.amount);
+      const storedUsers = localStorage.getItem('almadar_users');
+      setUsers(storedUsers ? JSON.parse(storedUsers) : defaultUsers);
+
+      const storedCustomers = localStorage.getItem('almadar_customers');
+      setCustomers(storedCustomers ? JSON.parse(storedCustomers) : defaultCustomers);
+
+      const storedParts = localStorage.getItem('almadar_parts');
+      setParts(storedParts ? JSON.parse(storedParts) : defaultParts);
+
+      const storedCategories = localStorage.getItem('almadar_custom_categories');
+      setCustomExpenseCategories(storedCategories ? JSON.parse(storedCategories) : defaultCustomExpenseCategories);
+
+      const storedRequests = localStorage.getItem('almadar_requests');
+      setRequests(storedRequests ? JSON.parse(storedRequests) : defaultMaintenanceRequests);
+
+      const storedTransactions = localStorage.getItem('almadar_transactions');
+      setTransactions(storedTransactions ? JSON.parse(storedTransactions) : defaultFinancialTransactions);
+
+      const storedMorningCash = localStorage.getItem('almadar_morning_cash');
+      setMorningCash(storedMorningCash ? JSON.parse(storedMorningCash) : defaultMorningCash.amount);
     } catch (e) {
       console.error('Error reading localStorage initial setup: ', e);
     }
@@ -656,16 +669,25 @@ function MainApplication() {
     saveState('almadar_requests', updated);
     apiPost('/api/maintenance-requests', freshReq);
 
-    // If the request was marked as paid immediately, automatically register it as income transaction in ledger!
-    if (newReq.paymentMethod === 'cash' || newReq.paymentMethod === 'click' || newReq.paymentMethod === 'cheque') {
+    const paidAmt = freshReq.paidAmount ?? (freshReq.paymentMethod !== 'none' ? freshReq.amount : 0);
+    // If the request was marked as paid or had an initial deposit, automatically register it as income transaction in ledger!
+    if (paidAmt > 0) {
       const freshTxId = `tx-auto-${Date.now()}`;
+      const methodLabel =
+        freshReq.paymentMethod === 'cash'
+          ? 'كاش'
+          : freshReq.paymentMethod === 'click'
+          ? 'كليك'
+          : freshReq.paymentMethod === 'cheque'
+          ? 'شيك'
+          : 'كاش';
       const freshTx: FinancialTransaction = {
         id: freshTxId,
         type: 'income',
         category: 'maintenance_return',
-        amount: newReq.amount,
-        date: newReq.date,
-        notes: `بدل صيانة ملقى تلقائياً من طلب العميل (${newReq.customerName})`,
+        amount: paidAmt,
+        date: freshReq.date || new Date().toISOString().split('T')[0],
+        notes: `دفعة صيانة أولية لطلب العميل (${newReq.customerName}) - طريقة: ${methodLabel}`,
       };
       const updatedTx = [freshTx, ...transactions];
       setTransactions(updatedTx);
@@ -736,27 +758,114 @@ function MainApplication() {
     saveState('almadar_requests', updated);
     apiPost('/api/maintenance-requests', merged);
 
-    // If payment status changed to paid, create income transaction!
-    if (
-      oldReq.paymentMethod === 'none' &&
-      (updatedFields.paymentMethod === 'cash' || updatedFields.paymentMethod === 'click' || updatedFields.paymentMethod === 'cheque')
-    ) {
+    // If paid amount increased or payment status changed, log difference as income
+    const oldPaid = oldReq.paidAmount ?? (oldReq.paymentMethod !== 'none' ? oldReq.amount : 0);
+    const newPaid = merged.paidAmount ?? (merged.paymentMethod !== 'none' ? merged.amount : 0);
+    const diff = newPaid - oldPaid;
+
+    if (diff > 0) {
       const freshTxId = `tx-auto-${Date.now()}`;
+      const methodLabel =
+        merged.paymentMethod === 'cash'
+          ? 'كاش'
+          : merged.paymentMethod === 'click'
+          ? 'كليك'
+          : merged.paymentMethod === 'cheque'
+          ? 'شيك'
+          : 'كاش';
       const freshTx: FinancialTransaction = {
         id: freshTxId,
         type: 'income',
         category: 'maintenance_return',
-        amount: updatedFields.amount || oldReq.amount,
-        date: updatedFields.date || oldReq.date,
-        notes: `تحصيل مبلغ صيانة لطلب العميل (${oldReq.customerName}) - طريقة: ${
-          updatedFields.paymentMethod === 'cash' ? 'كاش' : updatedFields.paymentMethod === 'click' ? 'كليك' : 'شيك'
-        }`,
+        amount: diff,
+        date: merged.date || new Date().toISOString().split('T')[0],
+        notes: `تحصيل دفعة صيانة لطلب العميل (${oldReq.customerName}) - طريقة: ${methodLabel}`,
       };
       const updatedTx = [freshTx, ...transactions];
       setTransactions(updatedTx);
       saveState('almadar_transactions', updatedTx);
       apiPost('/api/financial-transactions', freshTx);
     }
+  };
+
+  const handleAddPaymentToRequest = (
+    requestId: string,
+    payment: { amount: number; paymentMethod: 'cash' | 'click' | 'cheque'; date: string; notes?: string }
+  ) => {
+    const req = requests.find((r) => r.id === requestId);
+    if (!req) return;
+
+    const currentPaid = req.paidAmount ?? (req.paymentMethod !== 'none' ? req.amount : 0);
+    const newPaidAmount = currentPaid + payment.amount;
+    const existingPayments = req.payments || [];
+    const newPaymentItem = {
+      id: `pay-${Date.now()}`,
+      amount: payment.amount,
+      date: payment.date,
+      paymentMethod: payment.paymentMethod,
+      notes: payment.notes,
+    };
+    const updatedPayments = [...existingPayments, newPaymentItem];
+
+    const merged: MaintenanceRequest = {
+      ...req,
+      paidAmount: newPaidAmount,
+      paymentMethod:
+        newPaidAmount >= req.amount
+          ? payment.paymentMethod
+          : req.paymentMethod === 'none'
+          ? payment.paymentMethod
+          : req.paymentMethod,
+      payments: updatedPayments,
+    };
+
+    const updatedRequests = requests.map((r) => (r.id === requestId ? merged : r));
+    setRequests(updatedRequests);
+    saveState('almadar_requests', updatedRequests);
+    apiPost('/api/maintenance-requests', merged);
+
+    // Register income financial transaction automatically
+    const freshTxId = `tx-pay-${Date.now()}`;
+    const methodLabel = payment.paymentMethod === 'cash' ? 'كاش' : payment.paymentMethod === 'click' ? 'كليك' : 'شيك';
+    const freshTx: FinancialTransaction = {
+      id: freshTxId,
+      type: 'income',
+      category: 'maintenance_return',
+      amount: payment.amount,
+      date: payment.date,
+      notes: `دفعة صيانة لطلب العميل (${req.customerName}) - طريقة: ${methodLabel}${
+        payment.notes ? ` (${payment.notes})` : ''
+      }`,
+    };
+    const updatedTx = [freshTx, ...transactions];
+    setTransactions(updatedTx);
+    saveState('almadar_transactions', updatedTx);
+    apiPost('/api/financial-transactions', freshTx);
+  };
+
+  const handleDeletePaymentFromRequest = (requestId: string, paymentId: string) => {
+    const req = requests.find((r) => r.id === requestId);
+    if (!req) return;
+
+    const existingPayments = req.payments || [];
+    const paymentToDelete = existingPayments.find((p) => p.id === paymentId);
+    if (!paymentToDelete) return;
+
+    const updatedPayments = existingPayments.filter((p) => p.id !== paymentId);
+    const currentPaid = req.paidAmount ?? (req.paymentMethod !== 'none' ? req.amount : 0);
+    const newPaidAmount = Math.max(0, currentPaid - paymentToDelete.amount);
+
+    const merged: MaintenanceRequest = {
+      ...req,
+      paidAmount: newPaidAmount,
+      payments: updatedPayments,
+      paymentMethod: newPaidAmount > 0 ? req.paymentMethod : 'none',
+    };
+
+    const updatedRequests = requests.map((r) => (r.id === requestId ? merged : r));
+    setRequests(updatedRequests);
+    saveState('almadar_requests', updatedRequests);
+    apiPost('/api/maintenance-requests', merged);
   };
 
   // Finance Actions
@@ -783,16 +892,14 @@ function MainApplication() {
     const updated = transactions.map((t) => (t.id === updatedTx.id ? updatedTx : t));
     setTransactions(updated);
     saveState('almadar_transactions', updated);
-    // You could also add an apiPut or similar here if you have a real backend endpoint
-    // apiPost(`/api/financial-transactions/${updatedTx.id}`, updatedTx);
+    apiPost('/api/financial-transactions', updatedTx);
   };
 
   const handleDeleteTransaction = (id: string) => {
     const updated = transactions.filter((t) => t.id !== id);
     setTransactions(updated);
     saveState('almadar_transactions', updated);
-    // You could also add an apiDelete here if you have a real backend endpoint
-    // apiDelete(`/api/financial-transactions/${id}`);
+    apiDelete(`/api/financial-transactions/${id}`);
   };
 
   // Registry / Settings Actions
@@ -1228,6 +1335,8 @@ function MainApplication() {
             onUpdateRequest={handleUpdateRequest}
             onBulkUpdateRequests={handleBulkUpdateRequests}
             onDeleteRequest={handleDeleteRequest}
+            onAddPaymentToRequest={handleAddPaymentToRequest}
+            onDeletePaymentFromRequest={handleDeletePaymentFromRequest}
             canEdit={currentUser.permissions.canAddEditMaintenance}
             prefilledDate={prefilledCalendarDate}
             onClearPrefilledDate={() => setPrefilledCalendarDate('')}
@@ -1378,3 +1487,4 @@ export default function App() {
 
 
 
+// @refresh reset

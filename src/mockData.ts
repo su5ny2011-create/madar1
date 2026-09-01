@@ -94,6 +94,16 @@ export const defaultMaintenanceRequests: MaintenanceRequest[] = [
     failureReason: '',
     paymentMethod: 'cash',
     amount: 55,
+    paidAmount: 55,
+    payments: [
+      {
+        id: 'pay-1',
+        amount: 55,
+        date: '2026-07-13',
+        paymentMethod: 'cash',
+        notes: 'دفعة كاملة عند التسليم',
+      }
+    ],
   },
   {
     id: 'req-2',
@@ -110,6 +120,16 @@ export const defaultMaintenanceRequests: MaintenanceRequest[] = [
     failureReason: '',
     paymentMethod: 'click',
     amount: 75,
+    paidAmount: 75,
+    payments: [
+      {
+        id: 'pay-2',
+        amount: 75,
+        date: '2026-07-13',
+        paymentMethod: 'click',
+        notes: 'دفعة كليك CliQ مباشرة',
+      }
+    ],
   },
   {
     id: 'req-3',
@@ -124,8 +144,18 @@ export const defaultMaintenanceRequests: MaintenanceRequest[] = [
     requiredParts: 'قرص صلب HDD 4TB Surveillance Western Digital',
     status: 'in_progress',
     failureReason: '',
-    paymentMethod: 'none',
+    paymentMethod: 'cash',
     amount: 110,
+    paidAmount: 40,
+    payments: [
+      {
+        id: 'pay-3',
+        amount: 40,
+        date: '2026-07-14',
+        paymentMethod: 'cash',
+        notes: 'دفعة أولى مقدمة للبدء في طلب القرص الصلب',
+      }
+    ],
   },
   {
     id: 'req-4',
@@ -141,7 +171,9 @@ export const defaultMaintenanceRequests: MaintenanceRequest[] = [
     status: 'not_ready',
     failureReason: 'القطع غير متوفرة محلياً وتم طلبها خصيصاً وستصل خلال أسبوع',
     paymentMethod: 'none',
-    amount: 0,
+    amount: 45,
+    paidAmount: 0,
+    payments: [],
   },
 ];
 

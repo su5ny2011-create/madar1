@@ -600,6 +600,10 @@ export default function Dashboard({
                       break;
                   }
 
+                  const paid = req.paidAmount ?? (req.paymentMethod !== 'none' ? req.amount : 0);
+                  const isPaidFull = paid >= req.amount && req.amount > 0;
+                  const isPaidPartial = paid > 0 && paid < req.amount;
+
                   return (
                     <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-3.5 font-bold text-slate-800 text-center">
@@ -632,9 +636,21 @@ export default function Dashboard({
                       </td>
                       <td className="px-4 py-3.5 text-center font-bold text-slate-800 font-mono">
                         {req.amount} {t.jod}
-                        <div className="text-[10px] text-slate-400 font-sans mt-0.5">
-                          {req.paymentMethod === 'cash' ? t.cash : req.paymentMethod === 'click' ? t.click : req.paymentMethod === 'cheque' ? t.cheque : t.none}
-                        </div>
+                        {isPaidFull && (
+                          <div className="text-[10px] text-emerald-600 font-arabic font-black mt-0.5">
+                            {t.paidFull}
+                          </div>
+                        )}
+                        {isPaidPartial && (
+                          <div className="text-[10px] text-amber-600 font-arabic font-black mt-0.5">
+                            {t.paidPartial} ({paid} {t.jod})
+                          </div>
+                        )}
+                        {!isPaidFull && !isPaidPartial && (
+                          <div className="text-[10px] text-red-500 font-arabic font-black mt-0.5">
+                            {t.unpaid}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

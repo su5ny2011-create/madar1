@@ -24,6 +24,15 @@ export interface User {
 
 export type MaintenanceStatus = 'not_ready' | 'in_progress' | 'ready';
 
+export interface MaintenancePayment {
+  id: string;
+  amount: number;
+  date: string;
+  paymentMethod: 'cash' | 'click' | 'cheque';
+  notes?: string;
+  receivedBy?: string;
+}
+
 export interface MaintenanceRequest {
   id: string;
   customerName: string;
@@ -38,7 +47,9 @@ export interface MaintenanceRequest {
   status: MaintenanceStatus;
   failureReason: string; // Reason if status is 'not_ready'
   paymentMethod: 'cash' | 'click' | 'cheque' | 'none';
-  amount: number; // in JOD
+  amount: number; // in JOD (إجمالي المبلغ المطلوب)
+  paidAmount?: number; // in JOD (إجمالي الدفعة المسددة / المدفوعة)
+  payments?: MaintenancePayment[]; // سجل دفعات هذا الطلب التفصيلي
 }
 
 export type ExpenseCategory = 'maintenance_return' | 'petrol' | 'car_repair' | 'other';

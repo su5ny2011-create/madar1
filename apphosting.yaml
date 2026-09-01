@@ -1,9 +1,0 @@
-# apphosting.yaml
-
-scripts:
-  buildCommand: npm run build
-  runCommand: node dist/server.cjs
-
-outputFiles:
-  serverApp:
-    include: [.]
