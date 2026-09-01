@@ -10,6 +10,7 @@ export type UserRole = 'admin' | 'technician' | 'financial';
 export interface User {
   id: string;
   username: string;
+  pin?: string;
   fullNameAr: string;
   fullNameEn: string;
   role: UserRole;
@@ -18,6 +19,7 @@ export interface User {
     canAddEditFinance: boolean;
     canAddEditSettings: boolean;
     canManageUsers: boolean;
+    canChangePassword?: boolean;
   };
   active: boolean;
 }

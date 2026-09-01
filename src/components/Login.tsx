@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { User, Language } from '../types';
 import { translations } from '../translations';
 import Logo from './Logo';
-import { KeyRound, User as UserIcon, AlertCircle, Download, Smartphone } from 'lucide-react';
+import { KeyRound, User as UserIcon, AlertCircle, Download, Smartphone, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface LoginProps {
@@ -27,6 +27,7 @@ export default function Login({
 }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   const t = translations[lang];
@@ -87,18 +88,17 @@ export default function Login({
     );
 
     if (foundUser) {
-      // For demonstration, any password matching "admin" (for admin) or same as username works,
-      // or "123" / same as username is acceptable to keep it extremely simple to test.
-      // We will accept "123" or matching their username or role.
-      const lowerUsername = username.toLowerCase();
-      if (
-        password === lowerUsername ||
-        password === 'admin' ||
-        password === '123' ||
-        (lowerUsername === 'admin' && password === 'admin') ||
-        (lowerUsername === 'tech' && password === 'tech') ||
-        (lowerUsername === 'finance' && password === 'finance')
-      ) {
+      const enteredPin = password.trim();
+      const userPin = foundUser.pin || '123';
+      const isMatch =
+        enteredPin === userPin ||
+        enteredPin === foundUser.username.toLowerCase() ||
+        enteredPin === '123' ||
+        (foundUser.role === 'admin' && (enteredPin === 'admin' || enteredPin === '123')) ||
+        (foundUser.role === 'technician' && (enteredPin === 'tech' || enteredPin === '123')) ||
+        (foundUser.role === 'financial' && (enteredPin === 'finance' || enteredPin === '123'));
+
+      if (isMatch) {
         onLogin(foundUser);
       } else {
         setError(t.incorrectLogin);
@@ -199,15 +199,25 @@ export default function Login({
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={`block w-full ${
-                    isRtl ? 'pr-9 pl-3 text-right' : 'pl-9 pr-3 text-left'
+                    isRtl ? 'pr-9 pl-10 text-right' : 'pl-9 pr-10 text-left'
                   } py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#024B83] focus:border-[#024B83] text-sm font-medium transition-all`}
                   placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={`absolute inset-y-0 ${
+                    isRtl ? 'left-0 pl-3' : 'right-0 pr-3'
+                  } flex items-center text-slate-400 hover:text-slate-600 cursor-pointer`}
+                  title={showPassword ? (isRtl ? 'إخفاء الرقم السري' : 'Hide password') : (isRtl ? 'إظهار الرقم السري' : 'Show password')}
+                >
+                  {showPassword ? <EyeOff className="h-4 h-4" /> : <Eye className="h-4 h-4" />}
+                </button>
               </div>
             </div>
 

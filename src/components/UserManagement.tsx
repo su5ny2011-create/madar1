@@ -16,6 +16,12 @@ import {
   Key,
   Shield,
   Edit3,
+  KeyRound,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 
 interface UserManagementProps {
@@ -47,6 +53,8 @@ export default function UserManagement({
 
   // Form Fields
   const [username, setUsername] = useState('');
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [fullNameAr, setFullNameAr] = useState('');
   const [fullNameEn, setFullNameEn] = useState('');
   const [role, setRole] = useState<UserRole>('technician');
@@ -54,7 +62,15 @@ export default function UserManagement({
   const [canAddEditFinance, setCanAddEditFinance] = useState(false);
   const [canAddEditSettings, setCanAddEditSettings] = useState(false);
   const [canManageUsers, setCanManageUsers] = useState(false);
+  const [canChangePassword, setCanChangePassword] = useState(true);
   const [isActive, setIsActive] = useState(true);
+
+  // Quick PIN Reset Modal State
+  const [resetModalUser, setResetModalUser] = useState<User | null>(null);
+  const [newResetPin, setNewResetPin] = useState('');
+  const [showResetPin, setShowResetPin] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   if (!hasAccess) {
     return (
@@ -74,22 +90,27 @@ export default function UserManagement({
       setCanAddEditFinance(true);
       setCanAddEditSettings(true);
       setCanManageUsers(true);
+      setCanChangePassword(true);
     } else if (selectedRole === 'financial') {
       setCanAddEditMaintenance(false);
       setCanAddEditFinance(true);
       setCanAddEditSettings(true);
       setCanManageUsers(false);
+      setCanChangePassword(true);
     } else {
       // technician
       setCanAddEditMaintenance(true);
       setCanAddEditFinance(false);
       setCanAddEditSettings(true);
       setCanManageUsers(false);
+      setCanChangePassword(true);
     }
   };
 
   const handleOpenNewUserForm = () => {
     setUsername('');
+    setPin('123');
+    setShowPin(false);
     setFullNameAr('');
     setFullNameEn('');
     setRole('technician');
@@ -97,6 +118,7 @@ export default function UserManagement({
     setCanAddEditFinance(false);
     setCanAddEditSettings(true);
     setCanManageUsers(false);
+    setCanChangePassword(true);
     setIsActive(true);
     setEditingUserId(null);
     setShowForm(true);
@@ -104,6 +126,8 @@ export default function UserManagement({
 
   const handleOpenEditUserForm = (user: User) => {
     setUsername(user.username);
+    setPin('');
+    setShowPin(false);
     setFullNameAr(user.fullNameAr);
     setFullNameEn(user.fullNameEn);
     setRole(user.role);
@@ -111,6 +135,7 @@ export default function UserManagement({
     setCanAddEditFinance(user.permissions.canAddEditFinance);
     setCanAddEditSettings(user.permissions.canAddEditSettings);
     setCanManageUsers(user.permissions.canManageUsers);
+    setCanChangePassword(user.permissions.canChangePassword !== false);
     setIsActive(user.active);
     setEditingUserId(user.id);
     setShowForm(true);
@@ -120,27 +145,69 @@ export default function UserManagement({
     e.preventDefault();
     if (!username.trim() || !fullNameAr.trim() || !fullNameEn.trim()) return;
 
-    const userData = {
-      username: username.trim().toLowerCase(),
-      fullNameAr: fullNameAr.trim(),
-      fullNameEn: fullNameEn.trim(),
-      role,
-      permissions: {
-        canAddEditMaintenance,
-        canAddEditFinance,
-        canAddEditSettings,
-        canManageUsers,
-      },
-      active: isActive,
-    };
-
-    if (editingUserId) {
-      onUpdateUser(editingUserId, userData);
-    } else {
+    if (!editingUserId) {
+      // Adding new user: Password is required
+      const userData: Omit<User, 'id'> = {
+        username: username.trim().toLowerCase(),
+        pin: pin.trim() || '123',
+        fullNameAr: fullNameAr.trim(),
+        fullNameEn: fullNameEn.trim(),
+        role,
+        permissions: {
+          canAddEditMaintenance,
+          canAddEditFinance,
+          canAddEditSettings,
+          canManageUsers,
+          canChangePassword,
+        },
+        active: isActive,
+      };
       onAddUser(userData);
+    } else {
+      // Editing existing user: Do NOT touch or overwrite password/PIN
+      const userData: Partial<User> = {
+        username: username.trim().toLowerCase(),
+        fullNameAr: fullNameAr.trim(),
+        fullNameEn: fullNameEn.trim(),
+        role,
+        permissions: {
+          canAddEditMaintenance,
+          canAddEditFinance,
+          canAddEditSettings,
+          canManageUsers,
+          canChangePassword,
+        },
+        active: isActive,
+      };
+      onUpdateUser(editingUserId, userData);
     }
 
     setShowForm(false);
+  };
+
+  const handleOpenQuickReset = (user: User) => {
+    setResetModalUser(user);
+    setNewResetPin(user.pin || '123');
+    setShowResetPin(false);
+    setResetSuccess(false);
+    setResetError('');
+  };
+
+  const handleQuickResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetModalUser) return;
+    if (!newResetPin.trim() || newResetPin.trim().length < 3) {
+      setResetError(t.passwordMinLength);
+      return;
+    }
+
+    const updatedPin = newResetPin.trim();
+    onUpdateUser(resetModalUser.id, { pin: updatedPin });
+    setResetSuccess(true);
+    setTimeout(() => {
+      setResetSuccess(false);
+      setResetModalUser(null);
+    }, 1200);
   };
 
   const handleDelete = (id: string) => {
@@ -189,11 +256,11 @@ export default function UserManagement({
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className={`grid grid-cols-1 ${!editingUserId ? 'sm:grid-cols-2 md:grid-cols-4' : 'sm:grid-cols-3 md:grid-cols-3'} gap-4`}>
               {/* Username */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 mb-2 font-arabic">
-                  {t.username} (كود تسجيل الدخول)
+                  {t.username} (كود الدخول)
                 </label>
                 <input
                   type="text"
@@ -204,6 +271,37 @@ export default function UserManagement({
                   className="block w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs font-bold focus:outline-hidden focus:ring-1 focus:ring-[#024B83]"
                 />
               </div>
+
+              {/* Password / PIN - Only shown when creating a new user */}
+              {!editingUserId && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-2 font-arabic flex items-center justify-between">
+                    <span className="text-[#024B83] font-black">{t.userPin} (كلمة المرور) *</span>
+                    <span className="text-[10px] text-slate-400 font-normal">افتراضي: 123</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPin ? 'text' : 'password'}
+                      required
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value)}
+                      placeholder="123"
+                      className={`block w-full py-2 ${
+                        isRtl ? 'pr-3 pl-8 text-right' : 'pl-3 pr-8 text-left'
+                      } bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs font-bold focus:outline-hidden focus:ring-1 focus:ring-[#024B83]`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className={`absolute inset-y-0 ${
+                        isRtl ? 'left-0 pl-2.5' : 'right-0 pr-2.5'
+                      } flex items-center text-slate-400 hover:text-slate-600 cursor-pointer`}
+                    >
+                      {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Full Name Arabic */}
               <div>
@@ -352,6 +450,27 @@ export default function UserManagement({
                     <p className="text-[10px] text-slate-400">Can create accounts and adjust permissions of colleagues</p>
                   </div>
                 </label>
+
+                {/* Allow user to change their password */}
+                <label className="flex items-start gap-3 p-2.5 hover:bg-blue-50/50 rounded-lg cursor-pointer transition-colors border border-blue-100/60 bg-blue-50/20 md:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={canChangePassword}
+                    onChange={(e) => setCanChangePassword(e.target.checked)}
+                    className="mt-0.5 rounded-sm border-slate-300 text-[#024B83] focus:ring-[#024B83]"
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-black text-[#024B83] font-arabic flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-[#E5941A]" />
+                      <span>{t.canChangePassword}</span>
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-arabic">
+                      {isRtl
+                        ? 'السماح للموظف بتسجيل الدخول وتغيير الرقم السري الخاص بحسابه بنفسه من قائمته الشخصية'
+                        : 'Enable user to update and change their personal login password'}
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
 
@@ -464,6 +583,11 @@ export default function UserManagement({
                             🔑 {isRtl ? 'مدير' : 'Access'}
                           </span>
                         )}
+                        {u.permissions.canChangePassword !== false && (
+                          <span className="bg-blue-50 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 rounded-sm border border-blue-100">
+                            🔒 {isRtl ? 'تغيير السري' : 'Self-PIN'}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-center">
@@ -481,6 +605,13 @@ export default function UserManagement({
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <div className="flex items-center gap-1.5 justify-center">
+                        <button
+                          onClick={() => handleOpenQuickReset(u)}
+                          className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg cursor-pointer transition-colors border border-slate-100"
+                          title={isRtl ? 'تغيير الرقم السري للمستخدم' : 'Reset / Change User PIN'}
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => handleOpenEditUserForm(u)}
                           className="p-1.5 text-[#024B83] hover:bg-[#024B83] hover:text-white rounded-lg cursor-pointer transition-colors border border-slate-100"
@@ -506,6 +637,95 @@ export default function UserManagement({
           </table>
         </div>
       </div>
+
+      {/* Quick PIN Reset Modal */}
+      {resetModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-sm w-full p-6 relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-slate-800 font-arabic">
+                    {isRtl ? 'تغيير الرقم السري للمستخدم' : 'Change User PIN'}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-arabic font-bold">
+                    {isRtl ? resetModalUser.fullNameAr : resetModalUser.fullNameEn} ({resetModalUser.username})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setResetModalUser(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {resetError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-arabic flex items-center gap-2 mb-3">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                <span>{resetError}</span>
+              </div>
+            )}
+
+            {resetSuccess && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl font-arabic flex items-center gap-2 mb-3">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                <span>{t.passwordChangedSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleQuickResetSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5 font-arabic">
+                  {isRtl ? 'الرقم السري / رمز الدخول الجديد' : 'New Login PIN'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showResetPin ? 'text' : 'password'}
+                    required
+                    value={newResetPin}
+                    onChange={(e) => setNewResetPin(e.target.value)}
+                    placeholder="مثال: 123"
+                    className={`block w-full py-2.5 ${
+                      isRtl ? 'pr-3 pl-10 text-right' : 'pl-3 pr-10 text-left'
+                    } bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-[#024B83] focus:outline-hidden`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPin(!showResetPin)}
+                    className={`absolute inset-y-0 ${
+                      isRtl ? 'left-0 pl-3' : 'right-0 pr-3'
+                    } flex items-center text-slate-400 hover:text-slate-600 cursor-pointer`}
+                  >
+                    {showResetPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setResetModalUser(null)}
+                  className="px-3.5 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 cursor-pointer font-arabic"
+                >
+                  {t.cancel}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-1.5 bg-[#024B83] text-white text-xs font-bold rounded-lg shadow-sm hover:bg-[#0b4c80] cursor-pointer font-arabic flex items-center gap-1.5"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-[#E5941A]" />
+                  <span>{t.save}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

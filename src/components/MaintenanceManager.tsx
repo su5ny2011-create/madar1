@@ -1213,7 +1213,12 @@ export default function MaintenanceManager({
       </div>
 
       {/* DEDICATED SEPARATE PAYMENT MODAL */}
-      {paymentModalReq && (
+      {paymentModalReq && (() => {
+        const activePaymentReq = requests.find((r) => r.id === paymentModalReq.id) || paymentModalReq;
+        const currentPaid = activePaymentReq.paidAmount ?? (activePaymentReq.paymentMethod !== 'none' ? activePaymentReq.amount : 0);
+        const remaining = Math.max(0, activePaymentReq.amount - currentPaid);
+
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
           <div
             className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto"
@@ -1230,7 +1235,7 @@ export default function MaintenanceManager({
                     {t.quickPaymentModalTitle}
                   </h3>
                   <p className="text-xs text-slate-500 font-arabic mt-0.5">
-                    {isRtl ? 'للعميل:' : 'Client:'} <strong className="text-slate-800">{paymentModalReq.customerName}</strong> ({paymentModalReq.phoneNumber})
+                    {isRtl ? 'للعميل:' : 'Client:'} <strong className="text-slate-800">{activePaymentReq.customerName}</strong> ({activePaymentReq.phoneNumber})
                   </p>
                 </div>
               </div>
@@ -1251,31 +1256,29 @@ export default function MaintenanceManager({
             )}
 
             {/* Financial Overview for this Request */}
-            {paymentModalReq && (
-              <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
-                <div className="space-y-0.5">
-                  <span className="text-[10px] text-slate-400 font-bold font-arabic">{t.totalAmount}</span>
-                  <div className="text-lg font-black font-mono text-slate-800">
-                    {paymentModalReq.amount} <span className="text-[10px] font-arabic">{t.jod}</span>
-                  </div>
-                </div>
-                <div className="space-y-0.5 border-r border-l border-slate-200">
-                  <span className="text-[10px] text-emerald-600 font-bold font-arabic">{t.paidAmount}</span>
-                  <div className="text-lg font-black font-mono text-emerald-600">
-                    {(paymentModalReq.paidAmount ?? (paymentModalReq.paymentMethod !== 'none' ? paymentModalReq.amount : 0)).toFixed(2)} <span className="text-[10px] font-arabic">{t.jod}</span>
-                  </div>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-[10px] text-amber-600 font-bold font-arabic">{t.remainingAmount}</span>
-                  <div className="text-lg font-black font-mono text-amber-600">
-                    {Math.max(0, paymentModalReq.amount - (paymentModalReq.paidAmount ?? (paymentModalReq.paymentMethod !== 'none' ? paymentModalReq.amount : 0))).toFixed(2)} <span className="text-[10px] font-arabic">{t.jod}</span>
-                  </div>
+            <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-slate-400 font-bold font-arabic">{t.totalAmount}</span>
+                <div className="text-lg font-black font-mono text-slate-800">
+                  {activePaymentReq.amount} <span className="text-[10px] font-arabic">{t.jod}</span>
                 </div>
               </div>
-            )}
+              <div className="space-y-0.5 border-r border-l border-slate-200">
+                <span className="text-[10px] text-emerald-600 font-bold font-arabic">{t.paidAmount}</span>
+                <div className="text-lg font-black font-mono text-emerald-600">
+                  {currentPaid.toFixed(2)} <span className="text-[10px] font-arabic">{t.jod}</span>
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-amber-600 font-bold font-arabic">{t.remainingAmount}</span>
+                <div className="text-lg font-black font-mono text-amber-600">
+                  {remaining.toFixed(2)} <span className="text-[10px] font-arabic">{t.jod}</span>
+                </div>
+              </div>
+            </div>
 
             {/* Quick 1-Click Pay Full Remaining Button */}
-            {paymentModalReq && Math.max(0, paymentModalReq.amount - (paymentModalReq.paidAmount ?? (paymentModalReq.paymentMethod !== 'none' ? paymentModalReq.amount : 0))) > 0 && (
+            {remaining > 0 && (
               <button
                 type="button"
                 onClick={handlePayFullRemaining}
@@ -1283,7 +1286,7 @@ export default function MaintenanceManager({
               >
                 <Coins className="w-4 h-4" />
                 <span>
-                  {t.payRemainingNow} ({Math.max(0, paymentModalReq.amount - (paymentModalReq.paidAmount ?? (paymentModalReq.paymentMethod !== 'none' ? paymentModalReq.amount : 0))).toFixed(2)} {t.jod})
+                  {t.payRemainingNow} ({remaining.toFixed(2)} {t.jod})
                 </span>
               </button>
             )}
@@ -1376,13 +1379,13 @@ export default function MaintenanceManager({
                 <span>{t.paymentHistory}</span>
               </h4>
 
-              {(!paymentModalReq.payments || paymentModalReq.payments.length === 0) ? (
+              {(!activePaymentReq.payments || activePaymentReq.payments.length === 0) ? (
                 <div className="py-6 text-center text-slate-400 text-xs font-arabic bg-slate-50 rounded-xl border border-dashed border-slate-200">
                   {t.noPaymentsYet}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
-                  {paymentModalReq.payments.map((pmt, pIndex) => (
+                  {activePaymentReq.payments.map((pmt, pIndex) => (
                     <div key={pmt.id || pIndex} className="p-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
@@ -1428,7 +1431,8 @@ export default function MaintenanceManager({
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

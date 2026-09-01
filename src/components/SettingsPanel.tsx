@@ -16,6 +16,8 @@ import {
   FolderPlus,
   Phone,
   FileJson,
+  Upload,
+  Download,
 } from 'lucide-react';
 
 interface SettingsPanelProps {
@@ -34,6 +36,7 @@ interface SettingsPanelProps {
   requests: MaintenanceRequest[];
   users: User[];
   transactions: FinancialTransaction[];
+  onRestoreBackup?: (backupData: any) => Promise<boolean> | boolean;
 }
 
 export default function SettingsPanel({
@@ -52,6 +55,7 @@ export default function SettingsPanel({
   requests,
   users,
   transactions,
+  onRestoreBackup,
 }: SettingsPanelProps) {
   const t = translations[lang];
   const isRtl = lang === 'ar';
@@ -66,10 +70,11 @@ export default function SettingsPanel({
 
   // Notifications
   const [message, setMessage] = useState('');
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const showNotification = (msg: string) => {
     setMessage(msg);
-    setTimeout(() => setMessage(''), 3000);
+    setTimeout(() => setMessage(''), 4000);
   };
 
   const handleDownloadBackup = () => {
@@ -105,6 +110,41 @@ export default function SettingsPanel({
     } catch (error) {
       console.error('Backup download error:', error);
       showNotification(isRtl ? 'فشل تحميل النسخة الاحتياطية!' : 'Failed to download backup!');
+    }
+  };
+
+  const handleRestoreFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const confirmMsg = isRtl
+      ? 'هل أنت متأكد من استرجاع هذه النسخة الاحتياطية؟ سيتم دمج وتحديث السجلات الحالية.'
+      : 'Are you sure you want to restore this backup? Existing records will be updated and merged.';
+    
+    if (!window.confirm(confirmMsg)) {
+      e.target.value = '';
+      return;
+    }
+
+    setIsRestoring(true);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      if (onRestoreBackup) {
+        const success = await onRestoreBackup(parsed);
+        if (success) {
+          showNotification(t.restoreSuccess);
+        } else {
+          showNotification(t.restoreFailed);
+        }
+      }
+    } catch (err) {
+      console.error('Error parsing backup JSON:', err);
+      showNotification(t.restoreFailed);
+    } finally {
+      setIsRestoring(false);
+      e.target.value = '';
     }
   };
 
@@ -469,10 +509,10 @@ export default function SettingsPanel({
         </div>
       </div>
 
-      {/* Admin Backup Panel */}
+      {/* Admin Backup & Restore Panel */}
       {currentUser?.role === 'admin' && (
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-[#024B83] font-arabic flex items-center gap-2">
                 <FileJson className="w-5 h-5 text-[#E5941A]" />
@@ -482,13 +522,30 @@ export default function SettingsPanel({
                 {t.backupDesc}
               </p>
             </div>
-            <button
-              onClick={handleDownloadBackup}
-              className="flex items-center justify-center gap-2 py-2.5 px-5 bg-[#1C7C43] hover:bg-[#156133] text-white text-xs font-bold rounded-lg cursor-pointer shadow-xs transition-colors font-arabic whitespace-nowrap self-start sm:self-center"
-            >
-              <FileJson className="w-4 h-4 text-white" />
-              <span>{t.downloadBackupBtn}</span>
-            </button>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Restore Button with Hidden File Input */}
+              <label className="flex items-center justify-center gap-2 py-2.5 px-4 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold rounded-lg cursor-pointer shadow-xs transition-colors font-arabic whitespace-nowrap">
+                <Upload className="w-4 h-4 text-amber-700" />
+                <span>{isRestoring ? (isRtl ? 'جاري الاسترجاع...' : 'Restoring...') : t.restoreBackupBtn}</span>
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  onChange={handleRestoreFileChange}
+                  disabled={isRestoring}
+                />
+              </label>
+
+              {/* Download Backup Button */}
+              <button
+                onClick={handleDownloadBackup}
+                className="flex items-center justify-center gap-2 py-2.5 px-5 bg-[#1C7C43] hover:bg-[#156133] text-white text-xs font-bold rounded-lg cursor-pointer shadow-xs transition-colors font-arabic whitespace-nowrap"
+              >
+                <Download className="w-4 h-4 text-white" />
+                <span>{t.downloadBackupBtn}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

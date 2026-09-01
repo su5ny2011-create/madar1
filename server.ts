@@ -49,6 +49,7 @@ async function startServer() {
       const mapped = results.map(u => ({
         id: u.id.toString(),
         username: u.username,
+        pin: u.pin || '123',
         fullNameAr: u.fullNameAr,
         fullNameEn: u.fullNameEn,
         role: u.role as any,
@@ -57,6 +58,7 @@ async function startServer() {
           canAddEditFinance: u.canAddEditFinance,
           canAddEditSettings: u.canAddEditSettings,
           canManageUsers: u.canManageUsers,
+          canChangePassword: u.canChangePassword,
         },
         active: u.active,
       }));
@@ -77,7 +79,7 @@ async function startServer() {
       // Check if user already exists
       const numericId = u.id ? parseInt(u.id, 10) : NaN;
       
-      const val = {
+      const val: any = {
         username: u.username,
         fullNameAr: u.fullNameAr || '',
         fullNameEn: u.fullNameEn || '',
@@ -86,8 +88,13 @@ async function startServer() {
         canAddEditFinance: u.permissions?.canAddEditFinance ?? false,
         canAddEditSettings: u.permissions?.canAddEditSettings ?? false,
         canManageUsers: u.permissions?.canManageUsers ?? false,
+        canChangePassword: u.permissions?.canChangePassword ?? true,
         active: u.active ?? true,
       };
+
+      if (u.pin !== undefined && u.pin !== null && u.pin.trim() !== '') {
+        val.pin = u.pin.trim();
+      }
 
       if (!isNaN(numericId)) {
         // Update
@@ -98,6 +105,9 @@ async function startServer() {
         res.json(updated[0]);
       } else {
         // Insert
+        if (!val.pin) {
+          val.pin = '123';
+        }
         const inserted = await getDb().insert(dbUsers)
           .values(val)
           .onConflictDoUpdate({
@@ -109,6 +119,33 @@ async function startServer() {
       }
     } catch (err: any) {
       console.error('Error in POST /api/users:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/users/change-password', async (req, res) => {
+    try {
+      const { username, currentPin, newPin, userId } = req.body;
+      if (!newPin || newPin.trim() === '') {
+        return res.status(400).json({ error: 'New PIN/password is required' });
+      }
+
+      if (userId) {
+        const numericId = parseInt(userId, 10);
+        if (!isNaN(numericId)) {
+          await getDb().update(dbUsers).set({ pin: newPin.trim() }).where(eq(dbUsers.id, numericId));
+          return res.json({ success: true, message: 'Password updated successfully' });
+        }
+      }
+
+      if (username) {
+        await getDb().update(dbUsers).set({ pin: newPin.trim() }).where(eq(dbUsers.username, username.toLowerCase().trim()));
+        return res.json({ success: true, message: 'Password updated successfully' });
+      }
+
+      res.status(400).json({ error: 'User identifier is required' });
+    } catch (err: any) {
+      console.error('Error in POST /api/users/change-password:', err);
       res.status(500).json({ error: err.message });
     }
   });

@@ -34,7 +34,7 @@ import UserManagement from './components/UserManagement';
 import AppointmentCalendar from './components/AppointmentCalendar';
 import CustomerPortal from './components/CustomerPortal';
 import Logo from './components/Logo';
-import GoogleSheetsSync from './components/GoogleSheetsSync';
+import ChangePasswordModal from './components/ChangePasswordModal';
 import {
   LayoutDashboard,
   Wrench,
@@ -53,6 +53,7 @@ import {
   Menu,
   Database,
   RefreshCw,
+  KeyRound,
 } from 'lucide-react';
 
 function MainApplication() {
@@ -81,6 +82,7 @@ function MainApplication() {
   const [isAppInstalled, setIsAppInstalled] = useState(false);
   const [showiOSModal, setShowiOSModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState<boolean>(false);
 
   // Fetch fresh DB values from API and update state
   const fetchAllData = async () => {
@@ -224,13 +226,6 @@ function MainApplication() {
       iconColor: 'text-amber-500',
       show: currentUser && currentUser.permissions.canManageUsers,
     },
-    {
-      id: 'sheets',
-      label: t.navSheets,
-      icon: Database,
-      iconColor: 'text-emerald-500',
-      show: currentUser && (currentUser.role === 'admin' || currentUser.role === 'financial'),
-    },
   ];
 
   const renderSidebarContents = (isMobile: boolean = false) => {
@@ -251,7 +246,7 @@ function MainApplication() {
       },
       {
         title: isRtl ? 'الإعدادات والصلاحيات' : 'Control Panel & System',
-        items: menuItems.filter(item => ['settings', 'users', 'sheets'].includes(item.id) && item.show),
+        items: menuItems.filter(item => ['settings', 'users'].includes(item.id) && item.show),
       },
     ];
 
@@ -281,15 +276,28 @@ function MainApplication() {
               <div className="text-xs font-black text-slate-800 truncate leading-tight mt-0.5">
                 {isRtl ? currentUser.fullNameAr : currentUser.fullNameEn}
               </div>
-              <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-md text-[9px] font-black font-arabic ${
-                currentUser.role === 'admin' 
-                  ? 'bg-rose-50 text-rose-600 border border-rose-100/80' 
-                  : currentUser.role === 'technician'
-                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100/80'
-                  : 'bg-sky-50 text-sky-600 border border-sky-100/80'
-              }`}>
-                {roleLabel}
-              </span>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black font-arabic ${
+                  currentUser.role === 'admin' 
+                    ? 'bg-rose-50 text-rose-600 border border-rose-100/80' 
+                    : currentUser.role === 'technician'
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100/80'
+                    : 'bg-sky-50 text-sky-600 border border-sky-100/80'
+                }`}>
+                  {roleLabel}
+                </span>
+
+                {(currentUser.permissions.canChangePassword !== false || currentUser.role === 'admin') && (
+                  <button
+                    onClick={() => setShowChangePasswordModal(true)}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 transition-colors cursor-pointer"
+                    title={t.changeMyPassword}
+                  >
+                    <KeyRound className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                    <span>PIN</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -427,6 +435,20 @@ function MainApplication() {
             >
               <Download className="w-4 h-4 shrink-0" />
               <span>{isRtl ? 'تثبيت التطبيق' : 'Install App'}</span>
+            </button>
+          )}
+
+          {/* Change Password Button */}
+          {(currentUser.permissions.canChangePassword !== false || currentUser.role === 'admin') && (
+            <button
+              onClick={() => setShowChangePasswordModal(true)}
+              className="w-full flex items-center justify-between px-3.5 py-2 bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200/80 text-amber-900 rounded-xl text-xs font-black transition-all cursor-pointer font-arabic"
+            >
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{t.changeMyPassword}</span>
+              </div>
+              <span className="text-[10px] text-amber-600 font-mono">PIN</span>
             </button>
           )}
 
@@ -590,43 +612,6 @@ function MainApplication() {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (e) {
       console.error(`Error saving localStorage for ${key}`, e);
-    }
-  };
-
-  // Google Sheets Import handlers
-  const handleImportRequests = (imported: MaintenanceRequest[]) => {
-    const existingKeys = new Set((requests || []).map(r => `${r.customerName}-${r.phoneNumber}-${r.date}`));
-    const newRequests = imported.filter(r => !existingKeys.has(`${r.customerName}-${r.phoneNumber}-${r.date}`));
-    
-    if (newRequests.length > 0) {
-      const updated = [...(requests || []), ...newRequests];
-      setRequests(updated);
-      saveState('almadar_requests', updated);
-      newRequests.forEach(r => apiPost('/api/maintenance-requests', r));
-    }
-  };
-
-  const handleImportTransactions = (imported: FinancialTransaction[]) => {
-    const existingIds = new Set((transactions || []).map(t => t.id));
-    const newTx = imported.filter(t => !existingIds.has(t.id));
-
-    if (newTx.length > 0) {
-      const updated = [...(transactions || []), ...newTx];
-      setTransactions(updated);
-      saveState('almadar_transactions', updated);
-      newTx.forEach(t => apiPost('/api/financial-transactions', t));
-    }
-  };
-
-  const handleImportCustomers = (imported: Customer[]) => {
-    const existingKeys = new Set((customers || []).map(c => `${c.name}-${c.phoneNumber}`));
-    const newCust = imported.filter(c => !existingKeys.has(`${c.name}-${c.phoneNumber}`));
-
-    if (newCust.length > 0) {
-      const updated = [...(customers || []), ...newCust];
-      setCustomers(updated);
-      saveState('almadar_customers', updated);
-      newCust.forEach(c => apiPost('/api/customers', c));
     }
   };
 
@@ -993,11 +978,85 @@ function MainApplication() {
     }
   };
 
+  const handlePasswordChanged = (newPin: string) => {
+    if (currentUser) {
+      const refreshed = { ...currentUser, pin: newPin };
+      setCurrentUser(refreshed);
+      saveState('almadar_current_user', refreshed);
+      setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? { ...u, pin: newPin } : u)));
+    }
+  };
+
   const handleDeleteUser = (id: string) => {
     const updated = users.filter((u) => u.id !== id);
     setUsers(updated);
     saveState('almadar_users', updated);
     apiDelete(`/api/users/${id}`);
+  };
+
+  const handleRestoreBackup = async (backupData: any): Promise<boolean> => {
+    try {
+      if (!backupData || typeof backupData !== 'object') return false;
+
+      // 1. Customers
+      if (Array.isArray(backupData.customers) && backupData.customers.length > 0) {
+        setCustomers(backupData.customers);
+        saveState('almadar_customers', backupData.customers);
+        for (const c of backupData.customers) {
+          apiPost('/api/customers', c);
+        }
+      }
+
+      // 2. Parts
+      if (Array.isArray(backupData.parts) && backupData.parts.length > 0) {
+        setParts(backupData.parts);
+        saveState('almadar_parts', backupData.parts);
+        for (const p of backupData.parts) {
+          apiPost('/api/parts', p);
+        }
+      }
+
+      // 3. Custom Categories
+      if (Array.isArray(backupData.customExpenseCategories) && backupData.customExpenseCategories.length > 0) {
+        setCustomExpenseCategories(backupData.customExpenseCategories);
+        saveState('almadar_expense_categories', backupData.customExpenseCategories);
+        for (const ec of backupData.customExpenseCategories) {
+          apiPost('/api/custom-expense-categories', ec);
+        }
+      }
+
+      // 4. Requests
+      if (Array.isArray(backupData.requests) && backupData.requests.length > 0) {
+        setRequests(backupData.requests);
+        saveState('almadar_requests', backupData.requests);
+        for (const r of backupData.requests) {
+          apiPost('/api/maintenance-requests', r);
+        }
+      }
+
+      // 5. Transactions
+      if (Array.isArray(backupData.transactions) && backupData.transactions.length > 0) {
+        setTransactions(backupData.transactions);
+        saveState('almadar_transactions', backupData.transactions);
+        for (const tr of backupData.transactions) {
+          apiPost('/api/financial-transactions', tr);
+        }
+      }
+
+      // 6. Users (Admin only)
+      if (Array.isArray(backupData.users) && backupData.users.length > 0) {
+        setUsers(backupData.users);
+        saveState('almadar_users', backupData.users);
+        for (const u of backupData.users) {
+          apiPost('/api/users', u);
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error during handleRestoreBackup:', err);
+      return false;
+    }
   };
 
   // EXCEL EXPORTERS (Flawless client-side CSV format with Arabic UTF-8 BOM)
@@ -1389,6 +1448,7 @@ function MainApplication() {
             requests={requests}
             users={users}
             transactions={transactions}
+            onRestoreBackup={handleRestoreBackup}
           />
         )}
 
@@ -1400,18 +1460,6 @@ function MainApplication() {
             onAddUser={handleAddUser}
             onUpdateUser={handleUpdateUser}
             onDeleteUser={handleDeleteUser}
-          />
-        )}
-
-        {activeTab === 'sheets' && currentUser && (currentUser.role === 'admin' || currentUser.role === 'financial') && (
-          <GoogleSheetsSync
-            lang={lang}
-            requests={requests}
-            transactions={transactions}
-            customers={customers}
-            onImportRequests={handleImportRequests}
-            onImportTransactions={handleImportTransactions}
-            onImportCustomers={handleImportCustomers}
           />
         )}
       </main>
@@ -1474,6 +1522,17 @@ function MainApplication() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Change Password Modal */}
+      {currentUser && (
+        <ChangePasswordModal
+          isOpen={showChangePasswordModal}
+          onClose={() => setShowChangePasswordModal(false)}
+          currentUser={currentUser}
+          lang={lang}
+          onSuccess={handlePasswordChanged}
+        />
       )}
       </>
     )}

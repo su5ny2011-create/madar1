@@ -197,13 +197,23 @@ export default function CustomerPortal({
     if (!trackingQuery.trim()) return;
 
     const trimmed = trackingQuery.trim().toLowerCase();
-    // Search by exact phone number match or partial name or ID
-    const results = requests.filter(
-      (r) =>
-        r.phoneNumber.includes(trimmed) ||
-        r.customerName.toLowerCase().includes(trimmed) ||
-        r.id.toLowerCase().includes(trimmed)
-    );
+    const rawCleaned = trimmed.replace(/[\s\-\(\)\+]/g, '');
+    const cleanDigits = rawCleaned.replace(/^0+/, ''); // strip leading zeroes
+
+    // Search by smart phone number match or partial name or ID
+    const results = requests.filter((r) => {
+      const rClean = (r.phoneNumber || '').replace(/[\s\-\(\)\+]/g, '');
+      const rDigits = rClean.replace(/^0+/, '');
+
+      const phoneMatch =
+        (r.phoneNumber && r.phoneNumber.includes(trimmed)) ||
+        (cleanDigits.length >= 3 && (rClean.includes(rawCleaned) || rDigits.includes(cleanDigits) || cleanDigits.includes(rDigits)));
+
+      const nameMatch = (r.customerName || '').toLowerCase().includes(trimmed);
+      const idMatch = (r.id || '').toLowerCase().includes(trimmed);
+
+      return phoneMatch || nameMatch || idMatch;
+    });
 
     setSearchedRequests(results);
     setHasSearched(true);

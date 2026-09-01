@@ -4,6 +4,7 @@ export const dbUsers = pgTable('users', {
   id: serial('id').primaryKey(),
   uid: text('uid').unique(), // For firebase auth uid if used, or left empty
   username: text('username').notNull().unique(),
+  pin: text('pin').notNull().default('123'), // كلمة المرور / الرقم السري للدخول
   fullNameAr: text('full_name_ar').notNull(),
   fullNameEn: text('full_name_en').notNull(),
   role: text('role').notNull(), // 'admin' | 'technician' | 'financial'
@@ -11,6 +12,7 @@ export const dbUsers = pgTable('users', {
   canAddEditFinance: boolean('can_add_edit_finance').notNull().default(false),
   canAddEditSettings: boolean('can_add_edit_settings').notNull().default(false),
   canManageUsers: boolean('can_manage_users').notNull().default(false),
+  canChangePassword: boolean('can_change_password').notNull().default(true),
   active: boolean('active').notNull().default(true),
 });
 
